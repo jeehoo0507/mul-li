@@ -27,7 +27,7 @@ h1 b{color:var(--volt);font-weight:700} h1 i{color:var(--amp);font-style:normal}
 .dots{display:flex;gap:14px;font-size:12px;color:var(--muted)}
 .dots span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:var(--c)}
 
-.strip{display:flex;gap:5px;margin-top:14px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.strip{display:flex;gap:5px;margin-top:0;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
 .strip button{flex:0 0 auto;width:40px;height:40px;border:1px solid var(--line2);border-radius:5px;background:#000;padding:0;cursor:pointer;position:relative;overflow:hidden}
 .strip button canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
 .strip button[aria-pressed="true"]{border-color:var(--volt);box-shadow:0 0 0 1px var(--volt)}
@@ -53,7 +53,7 @@ h1 b{color:var(--volt);font-weight:700} h1 i{color:var(--amp);font-style:normal}
 .eq{display:contents;font:500 13px var(--mono);color:var(--fg)}
 .eq span{white-space:nowrap;font:500 13px var(--mono)}
 .eq .v{color:var(--volt)} .eq .a{color:var(--amp)} .eq .g{color:var(--ok)} .eq .m{color:var(--muted)}
-.tag{font-size:13px;font-weight:700;color:var(--fg);white-space:nowrap}
+.tag{display:none}
 
 .drawer{overflow:hidden;min-width:0}
 .drawer .in{width:250px;border:1px solid var(--line);border-radius:10px;padding:14px}
@@ -98,24 +98,19 @@ select{width:100%;background:#111;border:1px solid var(--line2);border-radius:5p
 </head>
 <body>
 <div class="wrap">
-<header>
-  <h1><b>옴</b>과 <i>키르히호프</i>로 숫자를 읽는 회로</h1>
-  <div class="dots"><span style="--c:var(--volt)">전압 · G⁺</span><span style="--c:var(--amp)">전류 · G⁻</span><span style="--c:var(--ok)">바이어스 · 정답</span></div>
-</header>
-
-<div class="strip" id="gallery" aria-label="숫자 고르기"></div>
+<div class="strip" id="gallery" aria-label="숫자"></div>
 
 <div class="bar">
   <div class="seg" role="tablist" id="tabs"></div>
   <div class="seg" id="steps"></div>
   <div class="sp"></div>
-  <button class="ibtn" id="prev" aria-label="이전 단계">◀</button>
-  <button class="ibtn play" id="play">재생</button>
-  <button class="ibtn" id="next" aria-label="다음 단계">▶</button>
+  <button class="ibtn" id="prev" aria-label="이전">◀</button>
+  <button class="ibtn play" id="play" aria-label="재생">▶</button>
+  <button class="ibtn" id="next" aria-label="다음">▶|</button>
   <div class="seg" id="presetBar">
-    <button data-preset="ideal">이상적</button><button data-preset="nominal">보통</button><button data-preset="bad">열악</button>
+    <button data-preset="ideal" title="이상적인 칩">이상</button><button data-preset="nominal" title="보통 칩">보통</button><button data-preset="bad" title="열악한 칩">열악</button>
   </div>
-  <button class="ibtn" id="gear" aria-expanded="false" aria-controls="drawer">칩 설정</button>
+  <button class="ibtn" id="gear" aria-expanded="false" aria-controls="drawer" aria-label="칩 설정" title="칩 설정">⚙</button>
 </div>
 
 <div class="main" id="main">
@@ -125,25 +120,25 @@ select{width:100%;background:#111;border:1px solid var(--line2);border-radius:5p
   </div>
   <aside class="drawer" id="drawer" aria-hidden="true">
     <div class="in">
-      <div class="seg" id="model"><button data-m="std" aria-pressed="true" title="일반 학습">일반</button><button data-m="hwa" aria-pressed="false" title="학습할 때 가중치에 잡음을 넣은 모델">하드웨어 인식</button></div>
-      <div class="ctl row2"><span title="보정용 숫자 200장으로 열마다 이득과 오프셋을 맞춤">열별 보정</span><input type="checkbox" class="switch" id="cal"></div>
-      <div class="ctl"><label for="sigma" title="소자마다 컨덕턴스가 다르게 써지는 정도">소자 편차 σ <output id="o_sigma"></output></label><input type="range" id="sigma" min="0" max="40" step="1"></div>
-      <div class="ctl"><label for="levels" title="소자가 표현할 수 있는 컨덕턴스 단계 수">소자 단계 <output id="o_levels"></output></label>
-        <select id="levels"><option value="2">2</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="32">32</option><option value="64">64</option><option value="0">연속</option></select></div>
+      <div class="seg" id="model"><button data-m="std" aria-pressed="true" title="일반 학습">기본</button><button data-m="hwa" aria-pressed="false" title="하드웨어 인식 학습">HWA</button></div>
+      <div class="ctl row2"><span title="열별 보정">보정</span><input type="checkbox" class="switch" id="cal"></div>
+      <div class="ctl"><label for="sigma" title="소자마다 컨덕턴스가 다르게 써지는 정도">σ <output id="o_sigma"></output></label><input type="range" id="sigma" min="0" max="40" step="1"></div>
+      <div class="ctl"><label for="levels" title="소자가 표현할 수 있는 컨덕턴스 단계 수">단계 <output id="o_levels"></output></label>
+        <select id="levels"><option value="2">2</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="32">32</option><option value="64">64</option><option value="0">∞</option></select></div>
       <div class="ctl"><label for="adc" title="열 전류를 숫자로 바꿀 때의 정밀도">ADC <output id="o_adc"></output></label><input type="range" id="adc" min="2" max="10" step="1"></div>
       <div class="ctl"><label for="dac" title="입력값을 행 전압으로 바꿀 때의 정밀도">DAC <output id="o_dac"></output></label>
-        <select id="dac"><option value="4">4비트</option><option value="6">6비트</option><option value="8">8비트</option><option value="0">연속</option></select></div>
-      <div class="ctl"><label for="beta" title="배선 저항 때문에 가장 먼 셀에서 잃는 전압">IR drop <output id="o_beta"></output></label><input type="range" id="beta" min="0" max="30" step="1"></div>
-      <div class="ctl"><label for="read" title="ADC 풀스케일 대비 무작위 잡음">읽기 잡음 <output id="o_read"></output></label><input type="range" id="read" min="0" max="5" step="0.1"></div>
-      <div class="row2"><span>칩 <output id="o_seed" style="font:500 12.5px var(--mono)"></output></span><button class="ibtn" id="newchip">새 칩</button></div>
+        <select id="dac"><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="0">∞</option></select></div>
+      <div class="ctl"><label for="beta" title="배선 저항 때문에 가장 먼 셀에서 잃는 전압">IR <output id="o_beta"></output></label><input type="range" id="beta" min="0" max="30" step="1"></div>
+      <div class="ctl"><label for="read" title="ADC 풀스케일 대비 무작위 잡음">잡음 <output id="o_read"></output></label><input type="range" id="read" min="0" max="5" step="0.1"></div>
+      <div class="row2"><output id="o_seed" style="font:500 12.5px var(--mono);color:var(--muted)"></output><button class="ibtn" id="newchip" title="다른 칩" aria-label="다른 칩">↻</button></div>
     </div>
   </aside>
 </div>
 
 <div class="res">
-  <div><div class="k" id="verdict"></div><div class="probs" id="probs"></div></div>
-  <div><div class="k">테스트 540장 정답률 · 디지털 / 칩</div><div class="big"><small id="accD">–</small><b id="accA">–</b></div></div>
-  <div><div class="k">층별 오차</div><div class="lerr" id="lerr"></div></div>
+  <div><div class="probs" id="probs"></div></div>
+  <div><div class="big" title="테스트 540장 정답률 (디지털 / 칩)"><small id="accD">–</small><b id="accA">–</b></div></div>
+  <div><div class="lerr" id="lerr" title="층별 오차"></div></div>
 </div>
 </div>
 
@@ -334,7 +329,7 @@ D.gallery.forEach(n => {
 function pickedUI() {}
 
 /* ---------------- UI: controls ---------------- */
-const fmt = { sigma: v => v + "%", levels: v => +v ? v + "단계" : "연속", adc: v => v + "비트", dac: v => +v ? v + "비트" : "연속", beta: v => v + "%", read: v => (+v).toFixed(1) + "%" };
+const fmt = { sigma: v => v + "%", levels: v => +v ? v : "∞", adc: v => v + "b", dac: v => +v ? v + "b" : "∞", beta: v => v + "%", read: v => (+v).toFixed(1) + "%" };
 function syncControls() {
   for (const k of ["sigma", "levels", "adc", "dac", "beta", "read"]) { $(k).value = S[k]; $("o_" + k).textContent = fmt[k](S[k]); }
   $("cal").checked = S.cal; $("o_seed").textContent = "#" + S.seed;
@@ -356,23 +351,23 @@ $("gear").onclick = () => {
 };
 
 /* ---------------- UI: tabs / steps / player ---------------- */
-const STAGES = ["DAC", "곱셈", "덧셈", "차동·ADC", "ReLU"];
+const STAGES = ["DAC", "×", "+", "−  ADC", "ReLU"];
 const STAGE_FULL = ["DAC  숫자 → 전압", "곱셈  I = G·V", "덧셈  열 전류 합", "차동 + ADC", "ReLU → 다음 층"];
 const tabs = $("tabs");
 SIZES.slice(1).forEach((n, li) => {
   const b = document.createElement("button"); b.setAttribute("role", "tab");
-  b.textContent = `${li + 1}층`; b.title = `${SIZES[li] + 1}×${n} 크로스바`;
+  b.textContent = `L${li + 1}`; b.title = `${SIZES[li] + 1}×${n}`;
   b.onclick = () => { stopPlay(); S.layer = li; S.stage = 0; S.t = 1; S.focus = null; updateNav(); draw(); renderExplain(); };
   tabs.append(b);
 });
 const steps = $("steps");
-STAGES.forEach((s, i) => { const b = document.createElement("button"); b.textContent = `${i + 1} ${s}`; b.onclick = () => { stopPlay(); S.stage = i; S.t = 1; updateNav(); draw(); renderExplain(); }; steps.append(b); });
-function stageName(i) { return i === 4 && S.layer === 2 ? "출력" : STAGES[i]; }
+STAGES.forEach((s, i) => { const b = document.createElement("button"); b.textContent = s; b.onclick = () => { stopPlay(); S.stage = i; S.t = 1; updateNav(); draw(); renderExplain(); }; steps.append(b); });
+function stageName(i) { return i === 4 && S.layer === 2 ? "max" : STAGES[i]; }
 function stageFull(i) { return i === 4 && S.layer === 2 ? "출력  가장 큰 값이 답" : STAGE_FULL[i]; }
 function updateNav() {
   tabs.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-selected", i === S.layer ? "true" : "false"));
-  steps.querySelectorAll("button").forEach((b, i) => { b.textContent = `${i + 1} ${stageName(i)}`; b.classList.toggle("done", i < S.stage); i === S.stage ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current"); });
-  $("play").textContent = S.playing ? "정지" : (S.layer === 2 && S.stage === 4 ? "처음" : "재생");
+  steps.querySelectorAll("button").forEach((b, i) => { b.textContent = stageName(i); b.classList.toggle("done", i < S.stage); i === S.stage ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current"); });
+  $("play").textContent = S.playing ? "❚❚" : (S.layer === 2 && S.stage === 4 ? "↺" : "▶");
 }
 function advance(dir) {
   let { layer, stage } = S; stage += dir;
@@ -549,33 +544,24 @@ function focusRow(L, st, j) { if (S.focus && S.focus.i != null) return S.focus.i
 function renderExplain() {
   if (!run) return;
   const L = chip.layers[S.layer], st = run.steps[S.layer], j = focusCol(st), i = focusRow(L, st, j), k = i * L.Nout + j;
-  const rowName = i === L.Nin - 1 ? "바이어스 행" : (S.layer === 0 ? `픽셀 ${i}` : `입력 ${i}`);
-  let title = stageName(S.stage), body = "", eq = "";
+  const rowName = i === L.Nin - 1 ? "bias" : `[${i}, ${j}]`;
+  let eq = "";
   if (S.stage === 0) {
-    body = "DAC가 이전 층의 값을 0~0.2 V 전압으로 바꿔 각 행에 겁니다. 맨 아래 초록 행은 바이어스로, 항상 같은 전압이 걸립니다.";
-    eq = `<span class="m">${rowName}</span>\nx = ${i === L.Nin - 1 ? "1 (고정)" : (st.hin[i]).toFixed(3)}\n<span class="v">V = ${(st.V[i] * 1000).toFixed(1)} mV</span>`;
+    eq = `<span class="m">${i === L.Nin - 1 ? "bias" : "row " + i}</span>\nx = ${i === L.Nin - 1 ? "1" : (st.hin[i]).toFixed(3)}\n<span class="v">V = ${(st.V[i] * 1000).toFixed(1)} mV</span>`;
   } else if (S.stage === 1) {
-    body = "교차점마다 옴의 법칙으로 전류가 흐릅니다. 컨덕턴스 G가 가중치, 전압 V가 입력이라 전류가 곧 곱셈 결과예요. 셀 밝기가 전류 크기입니다. 셀 위에 마우스를 올려 보세요.";
-    eq = `<span class="m">${rowName}, 열 ${j}</span>\n<span class="v">G⁺ = ${(L.Gp[k] * 1e6).toFixed(1)} µS</span>  <span class="a">G⁻ = ${(L.Gn[k] * 1e6).toFixed(1)} µS</span>\nI⁺ = G⁺ × V × ${(L.A[k]).toFixed(3)} = ${uA(st.cellP[k])}\nI⁻ = G⁻ × V × ${(L.A[k]).toFixed(3)} = ${uA(st.cellN[k])}`;
+    eq = `<span class="m">${rowName}</span>\n<span class="v">G⁺ ${(L.Gp[k] * 1e6).toFixed(1)} µS</span>\n<span class="a">G⁻ ${(L.Gn[k] * 1e6).toFixed(1)} µS</span>\nI = G·V\nI⁺ ${uA(st.cellP[k])}\nI⁻ ${uA(st.cellN[k])}`;
   } else if (S.stage === 2) {
-    body = "세로줄로 모인 전류는 키르히호프 전류 법칙에 따라 자동으로 더해집니다. 아래 막대가 각 열에 모인 전류의 합이에요.";
-    eq = `<span class="m">열 ${j}  (${L.Nin}개 셀의 합)</span>\n<span class="v">I⁺ = ΣG⁺V = ${uA(st.Ip[j])}</span>\n<span class="a">I⁻ = ΣG⁻V = ${uA(st.In[j])}</span>`;
+    eq = `<span class="m">col ${j}</span>\n<span class="v">ΣG⁺V = ${uA(st.Ip[j])}</span>\n<span class="a">ΣG⁻V = ${uA(st.In[j])}</span>`;
   } else if (S.stage === 3) {
-    const bits = chip.cfg.adc;
-    body = `TIA가 열 전류를 전압으로 바꾸고, 차동 회로가 I⁺ − I⁻를 구한 뒤 ${bits}비트 ADC가 숫자로 읽습니다. 파란 눈금은 디지털로 정확히 계산한 값이에요.`;
-    eq = `<span class="m">뉴런 ${j}</span>\nI⁺ − I⁻ = ${uA(st.Ipre[j])}\nADC ${bits}비트 → ${uA(st.Iq[j])}\n칩 출력 z = ${st.z[j].toFixed(3)}${L.cal ? "  (보정 후)" : ""}\n<span class="a">디지털    = ${dig.pres[S.layer][j].toFixed(3)}</span>`;
+    eq = `<span class="m">#${j}</span>\nI⁺ − I⁻ = ${uA(st.Ipre[j])}\nADC ${chip.cfg.adc}b → ${uA(st.Iq[j])}\nz = ${st.z[j].toFixed(3)}\n<span class="a">digital ${dig.pres[S.layer][j].toFixed(3)}</span>`;
+  } else if (L.last) {
+    const p = argmax(run.out), tr = D.yte[S.sample];
+    eq = `<span class="${p === tr ? "g" : "v"}">→ ${p}</span>\n<span class="m">true ${tr}</span>`;
   } else {
-    if (L.last) {
-      const p = argmax(run.out), tr = D.yte[S.sample];
-      body = "마지막 층은 ReLU 없이 10개 출력 중 가장 큰 값을 답으로 고릅니다.";
-      eq = `칩의 답     <span class="${p === tr ? "g" : "v"}">${p}</span>\n디지털의 답 ${argmax(dig.out)}\n정답        ${tr}`;
-    } else {
-      const neg = Array.from(st.z).filter(v => v < 0).length;
-      body = "ReLU가 음수 출력을 0으로 만들고(흐리게 표시), 나머지가 다음 층 DAC의 입력이 됩니다.";
-      eq = `max(0, z)\n<span class="m">${L.Nout}개 중 ${neg}개가 0이 됨</span>\n→ ${S.layer + 2}층 입력 ${L.Nout}개`;
-    }
+    const neg = Array.from(st.z).filter(v => v < 0).length;
+    eq = `max(0, z)\n<span class="m">${neg}/${L.Nout} → 0</span>`;
   }
-  $("exTitle").textContent = `${S.layer + 1}층  ${stageFull(S.stage)}`; $("exEq").innerHTML = eq.split("\n").map(x => x.startsWith("<span") ? x : `<span>${x}</span>`).join("");
+  $("exTitle").textContent = ""; $("exEq").innerHTML = eq.split("\n").map(x => x.startsWith("<span") ? x : `<span>${x}</span>`).join("");
 }
 
 /* ---------------- results ---------------- */
@@ -583,7 +569,6 @@ function softmax(z) { const m = Math.max(...z), e = Array.from(z, v => Math.exp(
 function relErr(a, b) { let n = 0, d = 0; for (let i = 0; i < a.length; i++) { n += (a[i] - b[i]) ** 2; d += b[i] ** 2; } return Math.sqrt(n / Math.max(d, 1e-12)); }
 function renderResults() {
   const pa = softmax(run.out), pd = softmax(dig.out), tr = D.yte[S.sample], ca = argmax(run.out), cd = argmax(dig.out);
-  $("verdict").innerHTML = `정답 ${tr} · 칩의 답 <span style="color:${ca === tr ? C.ok : C.bad};font:500 13px var(--mono)">${ca}</span> · 확률 (테두리 = 디지털)`;
   const box = $("probs"); box.innerHTML = "";
   const H = 58;
   for (let k = 0; k < 10; k++) {
@@ -595,7 +580,7 @@ function renderResults() {
   run.steps.forEach((s, li) => {
     const e = relErr(s.z, dig.pres[li]) * 100;
     const r = document.createElement("div");
-    r.innerHTML = `<em>${e.toFixed(1)}%</em><i style="height:${Math.min(44, e * 0.9).toFixed(1)}px"></i><span>${li + 1}층</span>`;
+    r.innerHTML = `<em>${e.toFixed(1)}%</em><i style="height:${Math.min(44, e * 0.9).toFixed(1)}px"></i><span>L${li + 1}</span>`;
     le.append(r);
   });
 }
