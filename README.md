@@ -66,9 +66,11 @@ index.html                 사이트 (데이터 내장, 이 파일 하나로 동
 src/index.template.html    사이트 원본 (데이터 자리 __DATA__)
 tools/build_site.py        학습된 가중치와 데이터를 넣어 index.html 생성
 sim/sim.py                 MLP 학습 + 아날로그 칩 시뮬레이션 + 실험
-sim/figs.py                그림 생성
+sim/figs.py                그림 생성 (회로도, 정확도·오차 분석)
+sim/extra_figs.py          추가 그림 (데이터·구조, 학습 곡선, 가중치→컨덕턴스, 신호 흐름, 칩별 편차)
 sim/out/                   results.json, params.npz
 figures/                   결과 그림
+figures/circuit/           부품 회로도 (곱셈, 덧셈, 뺄셈, TIA, 크로스바, 로그 증폭기)
 ```
 
 ## 다시 만들기
@@ -77,6 +79,7 @@ figures/                   결과 그림
 pip install numpy scikit-learn matplotlib
 python sim/sim.py          # 학습과 실험 → sim/out/
 python sim/figs.py         # 그림 → sim/out/
+python sim/extra_figs.py   # 추가 그림 → sim/out/
 python tools/build_site.py # index.html 다시 생성
 ```
 

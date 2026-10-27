@@ -81,7 +81,7 @@ def softmax(z):
     return e / e.sum(1, keepdims=True)
 
 
-def train(seed=0, noise=0.0, epochs=300, lr=3e-3, bs=64, wd=1e-4):
+def train(seed=0, noise=0.0, epochs=300, lr=3e-3, bs=64, wd=1e-4, log=None):
     """noise > 0 이면 하드웨어 인식 학습: 매 배치마다 가중치에 곱셈형 잡음을 넣고 학습"""
     params = init(seed)
     rng = np.random.default_rng(seed + 100)
@@ -110,6 +110,12 @@ def train(seed=0, noise=0.0, epochs=300, lr=3e-3, bs=64, wd=1e-4):
                     mh = m[li][k] / (1 - b1 ** t)
                     vh = v[li][k] / (1 - b2 ** t)
                     params[li][k] -= lr * mh / (np.sqrt(vh) + eps)
+        if log is not None:   # 에포치마다 기록 (rng를 쓰지 않으므로 학습 결과는 그대로)
+            for nm, xx, yy in (("train", Xtr, ytr), ("test", Xte, yte)):
+                o = forward(params, xx)[0][-1]
+                pr = softmax(o)
+                log.setdefault(nm + "_loss", []).append(float(-np.log(pr[np.arange(len(yy)), yy] + 1e-12).mean()))
+                log.setdefault(nm + "_acc", []).append(float((o.argmax(1) == yy).mean()))
     return params
 
 
