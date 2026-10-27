@@ -72,7 +72,10 @@ select{width:100%;background:#111;border:1px solid var(--line2);border-radius:5p
 
 .res{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:22px;margin-top:14px;align-items:end}
 .k{font-size:12px;color:var(--muted);margin-bottom:6px}
-.probs{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;height:74px;align-items:end}
+.predwrap{display:flex;gap:16px;align-items:flex-end}
+.pred{font:500 64px var(--mono);line-height:.9;min-width:52px;text-align:center;letter-spacing:-.04em}
+.pred small{display:block;font:500 12px var(--mono);color:var(--muted);letter-spacing:0;margin-top:6px}
+.probs{flex:1;display:grid;grid-template-columns:repeat(10,1fr);gap:4px;height:74px;align-items:end}
 .pc{position:relative;height:100%;display:flex;align-items:flex-end;justify-content:center}
 .pc .d{position:absolute;bottom:14px;left:12%;right:12%;border:1px solid #cfcfcf;border-bottom:0;border-radius:2px 2px 0 0}
 .pc .an{position:absolute;bottom:14px;left:30%;right:30%;background:var(--volt);border-radius:2px 2px 0 0}
@@ -136,7 +139,7 @@ select{width:100%;background:#111;border:1px solid var(--line2);border-radius:5p
 </div>
 
 <div class="res">
-  <div><div class="probs" id="probs"></div></div>
+  <div class="predwrap"><div class="pred" id="pred" title="칩이 예측한 숫자"></div><div class="probs" id="probs"></div></div>
   <div><div class="big" title="테스트 540장 정답률 (디지털 / 칩)"><small id="accD">–</small><b id="accA">–</b></div></div>
   <div><div class="lerr" id="lerr" title="층별 오차"></div></div>
 </div>
@@ -569,6 +572,7 @@ function softmax(z) { const m = Math.max(...z), e = Array.from(z, v => Math.exp(
 function relErr(a, b) { let n = 0, d = 0; for (let i = 0; i < a.length; i++) { n += (a[i] - b[i]) ** 2; d += b[i] ** 2; } return Math.sqrt(n / Math.max(d, 1e-12)); }
 function renderResults() {
   const pa = softmax(run.out), pd = softmax(dig.out), tr = D.yte[S.sample], ca = argmax(run.out), cd = argmax(dig.out);
+  $("pred").innerHTML = `<span style="color:${ca === tr ? C.ok : C.bad}">${ca}</span><small title="정답">${ca === tr ? "✓" : "✗"} ${tr}</small>`;
   const box = $("probs"); box.innerHTML = "";
   const H = 58;
   for (let k = 0; k < 10; k++) {
