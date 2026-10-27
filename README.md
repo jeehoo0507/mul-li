@@ -3,6 +3,8 @@
 저항으로 계산하는 아날로그 인메모리 컴퓨팅을 실제 신경망에 적용해 본 시뮬레이션과 시각화 사이트입니다.
 손글씨 숫자를 고르면, 가중치를 저항의 컨덕턴스로 담은 크로스바 회로가 3층 신경망(64 → 32 → 16 → 10)을 계산하는 과정을 단계별로 볼 수 있습니다.
 
+**실험 정리 문서: [EXPERIMENT.md](EXPERIMENT.md)** · 시각화 사이트: [jeehoo0507.github.io/mul-li](https://jeehoo0507.github.io/mul-li/)
+
 ![전체 회로](figures/01_full_circuit.png)
 
 ## 사이트 보기
