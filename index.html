@@ -45,8 +45,18 @@ h1 b{color:var(--volt);font-weight:700} h1 i{color:var(--amp);font-style:normal}
 .ibtn.play{background:var(--fg);color:#000;border-color:var(--fg);font-weight:500;min-width:62px}
 .ibtn[aria-expanded="true"]{border-color:var(--volt);color:var(--volt)}
 
-.main{display:grid;grid-template-columns:minmax(0,1fr) 0;gap:0;margin-top:10px;transition:grid-template-columns .2s}
-.main.open{grid-template-columns:minmax(0,1fr) 250px;gap:14px}
+.main{display:grid;grid-template-columns:168px minmax(0,1fr);gap:14px;margin-top:10px}
+.main.open{grid-template-columns:168px minmax(0,1fr) 250px}
+.main:not(.open)>.drawer{display:none}
+.padcol{display:flex;flex-direction:column;gap:8px}
+.pad{position:relative;width:168px;height:168px;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:#000;touch-action:none;cursor:crosshair}
+.pad.on{border-color:var(--volt);box-shadow:0 0 0 1px var(--volt)}
+.pad canvas{width:100%;height:100%;display:block}
+.pad .ph{position:absolute;inset:0;display:grid;place-items:center;color:#2c2c2c;font:500 64px var(--mono);pointer-events:none;transition:opacity .2s}
+.pad.inked .ph{opacity:0}
+.padbar{display:flex;gap:6px;align-items:center}
+.padbar canvas{width:40px;height:40px;border:1px solid var(--line2);border-radius:5px;image-rendering:pixelated;background:#000}
+.padbar .ibtn{flex:1}
 .stage{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000}
 #cv{width:100%;display:block;cursor:crosshair}
 .info{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 22px;border-top:1px solid var(--line);padding:10px 14px;min-height:42px}
@@ -92,7 +102,8 @@ select{width:100%;background:#111;border:1px solid var(--line2);border-radius:5p
 .lerr em{font:500 12px var(--mono);font-style:normal;color:var(--fg)}
 
 @media (max-width:900px){
-  .main.open{grid-template-columns:1fr}
+  .main,.main.open{grid-template-columns:1fr}
+  .padcol{flex-direction:row;align-items:flex-end}
   .drawer .in{width:auto}
   .res{grid-template-columns:1fr;gap:16px}
   .dots{display:none}
@@ -118,6 +129,10 @@ select{width:100%;background:#111;border:1px solid var(--line2);border-radius:5p
 </div>
 
 <div class="main" id="main">
+  <div class="padcol">
+    <div class="pad" id="pad" title="여기에 숫자를 그리세요"><canvas id="padcv" width="256" height="256" aria-label="숫자 그리기"></canvas><div class="ph">✎</div></div>
+    <div class="padbar"><canvas id="pad8" width="8" height="8" title="8×8로 줄인 입력"></canvas><button class="ibtn" id="padclr" aria-label="지우기" title="지우기">✕</button></div>
+  </div>
   <div class="stage">
     <canvas id="cv" aria-label="크로스바 회로 시각화"></canvas>
     <div class="info"><div class="tag" id="exTitle"></div><div class="eq" id="exEq"></div></div>
@@ -284,7 +299,7 @@ const PRESETS = {
   nominal: { sigma: 5,  levels: 32, adc: 8,  dac: 8, beta: 5,  read: 0.2 },
   bad:     { sigma: 30, levels: 8,  adc: 4,  dac: 4, beta: 15, read: 2 },
 };
-const S = { model: "std", cal: false, seed: 1, sample: D.gallery[0], layer: 0, stage: 0, playing: false, t: 1, focus: null, ...PRESETS.nominal };
+const S = { model: "std", cal: false, seed: 1, sample: D.gallery[0], x: null, label: null, layer: 0, stage: 0, playing: false, t: 1, focus: null, ...PRESETS.nominal };
 let chip = null, run = null, dig = null;
 
 const cfgOf = () => ({ sigma: S.sigma / 100, levels: +S.levels || null, adc: S.adc, dac: +S.dac || null, beta: S.beta / 100, read: S.read / 100 });
@@ -295,9 +310,11 @@ function rebuild() {
   recompute();
   scheduleAccuracy();
 }
+function curX() { return S.x || Xte[S.sample]; }
+function curLabel() { return S.x ? null : D.yte[S.sample]; }
 function recompute() {
-  const x = Xte[S.sample];
-  run = runChip(chip, x, S.seed * 100003 + S.sample, true);
+  const x = curX();
+  run = runChip(chip, x, S.seed * 100003 + (S.x ? 777 : S.sample), true);
   dig = digital(S.model, x);
   renderResults();
   draw();
@@ -327,10 +344,71 @@ D.gallery.forEach(n => {
   const cv = document.createElement("canvas"); cv.width = 8; cv.height = 8; drawDigit(cv, Xte[n]);
   b.title = `숫자 ${D.yte[n]}`;
   b.append(cv);
-  b.onclick = () => { S.sample = n; gal.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false")); pickedUI(); recompute(); startPlay(true); };
+  b.onclick = () => { S.sample = n; S.x = null; $("pad").classList.remove("on"); gal.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false")); pickedUI(); recompute(); startPlay(true); };
   gal.append(b);
 });
 function pickedUI() {}
+
+/* ---------------- drawing pad ---------------- */
+const pad = $("pad"), pcv = $("padcv"), pctx = pcv.getContext("2d");
+function padClear() { pctx.fillStyle = "#000"; pctx.fillRect(0, 0, 256, 256); pad.classList.remove("inked"); drawDigit($("pad8"), new Float64Array(64)); }
+padClear();
+let drawing = false, lastPt = null, inked = false, padTimer = 0;
+function padPt(e) { const r = pcv.getBoundingClientRect(); return [(e.clientX - r.left) * 256 / r.width, (e.clientY - r.top) * 256 / r.height]; }
+function stroke(a, b) {
+  pctx.strokeStyle = "#fff"; pctx.lineWidth = 20; pctx.lineCap = "round"; pctx.lineJoin = "round";
+  pctx.beginPath(); pctx.moveTo(a[0], a[1]); pctx.lineTo(b[0], b[1]); pctx.stroke();
+}
+pcv.addEventListener("pointerdown", e => { e.preventDefault(); pcv.setPointerCapture(e.pointerId); drawing = true; lastPt = padPt(e); stroke(lastPt, lastPt); inked = true; pad.classList.add("inked"); clearTimeout(padTimer); if (S.playing) stopPlay(); });
+pcv.addEventListener("pointermove", e => { if (!drawing) return; const p = padPt(e); stroke(lastPt, p); lastPt = p; });
+function padEnd() { if (!drawing) return; drawing = false; clearTimeout(padTimer); padTimer = setTimeout(padInfer, 450); }
+pcv.addEventListener("pointerup", padEnd); pcv.addEventListener("pointercancel", padEnd);
+$("padclr").onclick = () => { padClear(); inked = false; clearTimeout(padTimer); };
+
+/* 그린 그림 → 학습 데이터와 같은 8×8, 0~16 형식
+   (원본 데이터: 32×32 흑백 비트맵을 4×4 블록으로 나눠 켜진 픽셀 수를 셈) */
+function padTo8x8() {
+  const d = pctx.getImageData(0, 0, 256, 256).data;
+  let x0 = 256, y0 = 256, x1 = -1, y1 = -1;
+  for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) if (d[(y * 256 + x) * 4] > 128) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) return null;
+  const w = x1 - x0 + 1, h = y1 - y0 + 1, side = Math.max(w, h), sc = 32 / side;
+  const tmp = document.createElement("canvas"); tmp.width = 32; tmp.height = 32;
+  const t = tmp.getContext("2d"); t.fillStyle = "#000"; t.fillRect(0, 0, 32, 32); t.imageSmoothingQuality = "high";
+  // 학습 데이터의 숫자는 좁은 획(1 등)도 가로로 여러 칸을 차지한다 → 너무 좁으면 가로로 늘려서 맞춤
+  const dw = Math.max(w * sc, Math.min(32, h * sc * 0.3)), dh = h * sc;
+  t.drawImage(pcv, x0, y0, w, h, (32 - dw) / 2, (32 - dh) / 2, dw, dh);
+  const b = t.getImageData(0, 0, 32, 32).data;
+  // 학습 데이터는 획이 굵다 (숫자마다 잉크 양이 비슷: 켜진 픽셀 약 310개/1024).
+  // 그린 획이 가늘면 잉크 양이 비슷해질 때까지 획을 한 칸씩 굵게 만든다.
+  let m = new Uint8Array(1024);
+  for (let i = 0; i < 1024; i++) m[i] = b[i * 4] > 100 ? 1 : 0;
+  const TARGET = 300;
+  for (let it = 0; it < 6; it++) {
+    let on = 0; for (const v of m) on += v;
+    if (on >= TARGET) break;
+    const n = m.slice();
+    for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) if (m[y * 32 + x]) {
+      if (x > 0) n[y * 32 + x - 1] = 1; if (x < 31) n[y * 32 + x + 1] = 1;
+      if (y > 0) n[(y - 1) * 32 + x] = 1; if (y < 31) n[(y + 1) * 32 + x] = 1;
+    }
+    m = n;
+  }
+  const out = new Float64Array(64);
+  for (let by = 0; by < 8; by++) for (let bx = 0; bx < 8; bx++) {
+    let on = 0;
+    for (let yy = 0; yy < 4; yy++) for (let xx = 0; xx < 4; xx++) on += m[(by * 4 + yy) * 32 + bx * 4 + xx];
+    out[by * 8 + bx] = on / 16;
+  }
+  return out;
+}
+function padInfer() {
+  const x = padTo8x8(); if (!x) return;
+  drawDigit($("pad8"), x);
+  S.x = x; pad.classList.add("on");
+  gal.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", "false"));
+  recompute(); startPlay(true);
+}
 
 /* ---------------- UI: controls ---------------- */
 const fmt = { sigma: v => v + "%", levels: v => +v ? v : "∞", adc: v => v + "b", dac: v => +v ? v + "b" : "∞", beta: v => v + "%", read: v => (+v).toFixed(1) + "%" };
@@ -441,7 +519,7 @@ function draw() {
 
   // input digit for layer 1
   if (showDigit) {
-    const s = 9, ix = 4, iy = yA + arrH / 2 - 4 * s, x = Xte[S.sample];
+    const s = 9, ix = 4, iy = yA + arrH / 2 - 4 * s, x = curX();
     for (let k = 0; k < 64; k++) { const v = Math.round(x[k] * 255); ctx.fillStyle = `rgb(${v},${v},${v})`; ctx.fillRect(ix + (k % 8) * s, iy + Math.floor(k / 8) * s, s, s); }
     ctx.strokeStyle = C.dim; ctx.lineWidth = 1; ctx.strokeRect(ix + .5, iy + .5, 8 * s, 8 * s);
   }
@@ -508,7 +586,7 @@ function draw() {
     ctx.strokeStyle = "rgba(236,236,236,.12)"; ctx.lineWidth = .6;
     for (let j = 0; j < Nout; j++) { const xo = xP + (j + .5) * ow; for (const x0 of [xP, xN]) { ctx.beginPath(); ctx.moveTo(x0 + (j + .5) * cw, yBar + barH); ctx.lineTo(xo, yOut + 2); ctx.stroke(); } }
   }
-  const pred = argmax(run.out), truth = D.yte[S.sample];
+  const pred = argmax(run.out), truth = curLabel();
   for (let j = 0; j < Nout; j++) {
     const xo = xP + (j + .5) * ow, bw = Math.max(2, ow * .52);
     if (stage >= 3) {
@@ -518,7 +596,7 @@ function draw() {
       const reluHide = stage === 4 && !L.last && val < 0;
       const hgt = val * sc * (stage === 3 ? Math.min(1, t * 1.8) : 1);
       let col = val >= 0 ? C.fg : C.muted;
-      if (L.last && stage === 4) col = j === pred ? (pred === truth ? C.ok : C.bad) : C.dim;
+      if (L.last && stage === 4) col = j === pred ? (truth == null || pred === truth ? C.ok : C.bad) : C.dim;
       ctx.globalAlpha = reluHide ? .18 : 1;
       ctx.fillStyle = col; ctx.fillRect(xo - bw / 2, hgt >= 0 ? y0 - hgt : y0, bw, Math.abs(hgt));
       ctx.globalAlpha = 1;
@@ -563,8 +641,8 @@ function renderExplain() {
   } else if (S.stage === 3) {
     eq = `<span class="m">#${j}</span>\nI⁺ − I⁻ = ${uA(st.Ipre[j])}\nADC ${chip.cfg.adc}b → ${uA(st.Iq[j])}\nz = ${st.z[j].toFixed(3)}\n<span class="a">digital ${dig.pres[S.layer][j].toFixed(3)}</span>`;
   } else if (L.last) {
-    const p = argmax(run.out), tr = D.yte[S.sample];
-    eq = `<span class="${p === tr ? "g" : "v"}">→ ${p}</span>\n<span class="m">true ${tr}</span>`;
+    const p = argmax(run.out), tr = curLabel();
+    eq = tr == null ? `<span class="g">→ ${p}</span>` : `<span class="${p === tr ? "g" : "v"}">→ ${p}</span>\n<span class="m">true ${tr}</span>`;
   } else {
     const neg = Array.from(st.z).filter(v => v < 0).length;
     eq = `max(0, z)\n<span class="m">${neg}/${L.Nout} → 0</span>`;
@@ -576,13 +654,14 @@ function renderExplain() {
 function softmax(z) { const m = Math.max(...z), e = Array.from(z, v => Math.exp(v - m)), s = e.reduce((a, b) => a + b, 0); return e.map(v => v / s); }
 function relErr(a, b) { let n = 0, d = 0; for (let i = 0; i < a.length; i++) { n += (a[i] - b[i]) ** 2; d += b[i] ** 2; } return Math.sqrt(n / Math.max(d, 1e-12)); }
 function renderResults() {
-  const pa = softmax(run.out), pd = softmax(dig.out), tr = D.yte[S.sample], ca = argmax(run.out), cd = argmax(dig.out);
-  $("pred").innerHTML = `<span style="color:${ca === tr ? C.ok : C.bad}">${ca}</span><small title="정답">${ca === tr ? "✓" : "✗"} ${tr}</small>`;
+  const pa = softmax(run.out), pd = softmax(dig.out), tr = curLabel(), ca = argmax(run.out), cd = argmax(dig.out);
+  const good = tr == null || ca === tr;
+  $("pred").innerHTML = `<span style="color:${good ? C.ok : C.bad}">${ca}</span>` + (tr == null ? `<small title="직접 그린 숫자">✎</small>` : `<small title="정답">${ca === tr ? "✓" : "✗"} ${tr}</small>`);
   const box = $("probs"); box.innerHTML = "";
   const H = 58;
   for (let k = 0; k < 10; k++) {
     const r = document.createElement("div"); r.className = "pc" + (k === tr ? " t" : "");
-    r.innerHTML = `<div class="d" style="height:${(pd[k] * H).toFixed(1)}px"></div><div class="an" style="height:${(pa[k] * H).toFixed(1)}px;background:${k === ca ? (ca === tr ? C.ok : C.bad) : C.volt}"></div><span>${k}</span>`;
+    r.innerHTML = `<div class="d" style="height:${(pd[k] * H).toFixed(1)}px"></div><div class="an" style="height:${(pa[k] * H).toFixed(1)}px;background:${k === ca ? (good ? C.ok : C.bad) : C.volt}"></div><span>${k}</span>`;
     box.append(r);
   }
   const le = $("lerr"); le.innerHTML = "";
