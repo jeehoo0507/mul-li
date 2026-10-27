@@ -70,7 +70,8 @@ select{width:100%;background:#111;border:1px solid var(--line2);border-radius:5p
 .drawer .seg{width:100%;margin-bottom:12px}
 .drawer .seg button{flex:1}
 
-.res{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:22px;margin-top:14px;align-items:end}
+.res{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);gap:22px;margin-top:14px;align-items:end;transition:opacity .45s ease,transform .45s ease}
+.res.wait{opacity:0;visibility:hidden;transform:translateY(6px)}
 .k{font-size:12px;color:var(--muted);margin-bottom:6px}
 .predwrap{display:flex;gap:16px;align-items:flex-end}
 .pred{font:500 64px var(--mono);line-height:.9;min-width:52px;text-align:center;letter-spacing:-.04em}
@@ -138,7 +139,7 @@ select{width:100%;background:#111;border:1px solid var(--line2);border-radius:5p
   </aside>
 </div>
 
-<div class="res">
+<div class="res wait" id="res" aria-live="polite">
   <div class="predwrap"><div class="pred" id="pred" title="칩이 예측한 숫자"></div><div class="probs" id="probs"></div></div>
   <div><div class="big" title="테스트 540장 정답률 (디지털 / 칩)"><small id="accD">–</small><b id="accA">–</b></div></div>
   <div><div class="lerr" id="lerr" title="층별 오차"></div></div>
@@ -367,7 +368,10 @@ const steps = $("steps");
 STAGES.forEach((s, i) => { const b = document.createElement("button"); b.textContent = s; b.onclick = () => { stopPlay(); S.stage = i; S.t = 1; updateNav(); draw(); renderExplain(); }; steps.append(b); });
 function stageName(i) { return i === 4 && S.layer === 2 ? "max" : STAGES[i]; }
 function stageFull(i) { return i === 4 && S.layer === 2 ? "출력  가장 큰 값이 답" : STAGE_FULL[i]; }
+function isDone() { return S.layer === 2 && S.stage === 4 && S.t >= 1; }
+function updateReveal() { $("res").classList.toggle("wait", !isDone()); }
 function updateNav() {
+  updateReveal();
   tabs.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-selected", i === S.layer ? "true" : "false"));
   steps.querySelectorAll("button").forEach((b, i) => { b.textContent = stageName(i); b.classList.toggle("done", i < S.stage); i === S.stage ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current"); });
   $("play").textContent = S.playing ? "❚❚" : (S.layer === 2 && S.stage === 4 ? "↺" : "▶");
@@ -395,11 +399,12 @@ function tick(now) {
   const dt = now - last; last = now;
   S.t = REDUCED ? 1 : Math.min(1, S.t + dt / (STAGE_MS * 0.7));
   draw();
+  if (S.t >= 1 && isDone()) updateReveal();
   if (S.t >= 1) {
     if (!tick.hold) tick.hold = now;
     if (now - tick.hold > STAGE_MS * (REDUCED ? 1 : 0.35)) {
       tick.hold = 0;
-      if (!advance(1)) { stopPlay(); draw(); renderExplain(); return; }
+      if (!advance(1)) { stopPlay(); draw(); renderExplain(); updateReveal(); return; }
       S.t = 0; updateNav(); renderExplain();
     }
   }
@@ -601,6 +606,7 @@ function computeAccuracy() {
 syncControls(); pickedUI(); updateNav();
 addEventListener("resize", resize);
 rebuild(); resize();
+startPlay(true);
 window.__sim = { buildChip, runChip, digital, calibrate, Xte, D, S, get chip() { return chip; } };
 })();
 </script>
