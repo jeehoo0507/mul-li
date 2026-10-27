@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>저항으로 계산하는 신경망</title>
+<meta name="description" content="손글씨 숫자를 고르면 옴의 법칙과 키르히호프 법칙으로 계산하는 아날로그 크로스바 회로가 답을 내는 과정을 단계별로 보여줍니다.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#000;--panel:#0a0a0a;--line:#262626;--line2:#3a3a3a;
+  --fg:#ececec;--muted:#9a9a9a;--dim:#5e5e5e;
+  --volt:#ff8a4c;--volt-d:#5a2a10;--amp:#6d9bff;--amp-d:#16285a;--ok:#5fd38d;--bad:#ff5d6c;
+  --sans:"IBM Plex Sans KR",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.55}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--amp);outline-offset:2px}
+a{color:var(--amp)}
+.wrap{max-width:1440px;margin:0 auto;padding:28px 24px 48px}
+
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 40px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+h1{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+h1 .ohm{color:var(--volt)} h1 .kir{color:var(--amp)}
+.lede{color:var(--muted);max-width:62ch;margin-top:8px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:18px;height:3px;border-radius:2px;display:inline-block}
+
+.bench{display:grid;grid-template-columns:232px minmax(0,1fr) 272px;gap:0;margin-top:22px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.bench>*{padding:18px}
+.picker{border-right:1px solid var(--line)}
+.controls{border-left:1px solid var(--line)}
+h2{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--fg)}
+.hint{font-size:12.5px;color:var(--muted);margin-top:-6px;margin-bottom:12px}
+
+.gallery{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.gallery button{aspect-ratio:1;border:1px solid var(--line2);border-radius:5px;background:#000;padding:0;cursor:pointer;position:relative;overflow:hidden}
+.gallery button canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+.gallery button[aria-pressed="true"]{border-color:var(--volt);box-shadow:0 0 0 1px var(--volt)}
+.gallery button .tag{position:absolute;right:2px;bottom:1px;font:500 9.5px var(--mono);color:var(--dim)}
+.gallery button.wrong .tag{color:var(--bad)}
+.picked{margin-top:14px;display:flex;gap:12px;align-items:center}
+.picked canvas{width:72px;height:72px;border:1px solid var(--line2);border-radius:5px;image-rendering:pixelated}
+.picked .t{font-size:13px;color:var(--muted)}
+.picked .t b{display:block;font:500 26px var(--mono);color:var(--fg);line-height:1.1}
+
+.viewer{min-width:0}
+.vtop{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.tabs{display:flex;gap:4px;background:#111;border:1px solid var(--line);border-radius:7px;padding:3px}
+.tabs button{border:0;background:none;padding:5px 11px;border-radius:5px;cursor:pointer;font-size:13px;color:var(--muted)}
+.tabs button small{font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:4px}
+.tabs button[aria-selected="true"]{background:#262626;color:var(--fg)}
+.tabs button[aria-selected="true"] small{color:var(--muted)}
+.player{display:flex;gap:6px}
+.player button{border:1px solid var(--line2);background:#111;border-radius:6px;height:32px;min-width:32px;padding:0 10px;cursor:pointer;font-size:13px}
+.player button:hover{border-color:var(--muted)}
+.player .play{background:var(--fg);color:#000;border-color:var(--fg);font-weight:500;min-width:76px}
+
+ol.steps{list-style:none;display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:12px;counter-reset:s}
+ol.steps li{counter-increment:s}
+ol.steps button{width:100%;text-align:left;border:0;border-top:2px solid var(--line2);background:none;padding:7px 2px 2px;cursor:pointer;color:var(--dim);font-size:12.5px;line-height:1.3}
+ol.steps button::before{content:counter(s);font:500 11px var(--mono);margin-right:6px}
+ol.steps button.done{border-top-color:var(--muted);color:var(--muted)}
+ol.steps button[aria-current="step"]{border-top-color:var(--volt);color:var(--fg)}
+
+.stage{position:relative;background:#000;border-radius:6px}
+#cv{width:100%;display:block;cursor:crosshair}
+.explain{margin-top:12px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;align-items:start;min-height:96px}
+.explain h3{font-size:17px;font-weight:700;margin-bottom:4px}
+.explain p{color:var(--muted);font-size:14px;max-width:58ch}
+.eq{font:500 15px var(--mono);color:var(--fg);background:#0e0e0e;border:1px solid var(--line);border-left:3px solid var(--volt);border-radius:5px;padding:10px 12px;white-space:pre-wrap;line-height:1.6}
+.eq .v{color:var(--volt)} .eq .a{color:var(--amp)} .eq .g{color:var(--ok)} .eq .m{color:var(--muted)}
+
+.ctl{margin-bottom:16px}
+.ctl label,.ctl .lab{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;margin-bottom:5px}
+.ctl output{font:500 13px var(--mono);color:var(--volt)}
+.ctl small{display:block;color:var(--dim);font-size:12px;margin-top:3px;line-height:1.4}
+input[type=range]{width:100%;accent-color:var(--volt)}
+select{width:100%;background:#111;border:1px solid var(--line2);border-radius:5px;padding:5px 8px}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:#0d0d0d;padding:7px 4px;font-size:12.5px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:#262626;color:var(--fg)}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.presets button{border:1px solid var(--line2);background:none;border-radius:999px;padding:4px 11px;font-size:12.5px;cursor:pointer;color:var(--muted)}
+.presets button:hover{color:var(--fg);border-color:var(--muted)}
+.switch{display:flex;align-items:center;justify-content:space-between;font-size:13.5px;cursor:pointer}
+.switch input{appearance:none;width:36px;height:20px;border-radius:999px;background:#2a2a2a;position:relative;cursor:pointer;transition:background .15s}
+.switch input::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#bbb;top:2px;left:2px;transition:left .15s}
+.switch input:checked{background:var(--amp)}
+.switch input:checked::after{left:18px;background:#fff}
+.chiprow{display:flex;gap:6px;align-items:center}
+.chiprow output{font:500 13px var(--mono);color:var(--fg);min-width:52px}
+.chiprow button{flex:1;border:1px solid var(--line2);background:#111;border-radius:6px;padding:6px;font-size:12.5px;cursor:pointer}
+hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+
+.results{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:28px;margin-top:26px}
+.results section{min-width:0}
+.verdict{font-size:14px;color:var(--muted);margin-bottom:12px}
+.verdict b{font:500 22px var(--mono);color:var(--fg);margin:0 4px 0 6px}
+.verdict .ok{color:var(--ok)} .verdict .bad{color:var(--bad)}
+.probs{display:grid;gap:5px}
+.prow{display:grid;grid-template-columns:18px 1fr 54px;gap:8px;align-items:center;font:500 12.5px var(--mono);color:var(--muted)}
+.ptrack{position:relative;height:16px;background:#0f0f0f;border-radius:3px}
+.ptrack .d{position:absolute;inset:0 auto 0 0;border:1px solid #cfcfcf;border-radius:3px;background:transparent}
+.ptrack .an{position:absolute;left:0;top:4px;height:8px;border-radius:2px;background:var(--volt)}
+.prow.true{color:var(--fg)}
+.keys{display:flex;gap:16px;font-size:12px;color:var(--muted);margin-top:10px}
+.keys i{display:inline-block;width:14px;height:9px;border-radius:2px;vertical-align:-1px;margin-right:5px}
+.lerr{display:grid;gap:10px}
+.lerr .row{display:grid;grid-template-columns:62px 1fr 60px;gap:10px;align-items:center;font-size:13px}
+.lerr .bar{height:8px;background:#151515;border-radius:4px;overflow:hidden}
+.lerr .bar i{display:block;height:100%;background:var(--amp)}
+.lerr .num{font:500 13px var(--mono);text-align:right}
+.acc{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.acc div{border-top:2px solid var(--line2);padding-top:8px}
+.acc div.an{border-top-color:var(--volt)}
+.acc span{display:block;font-size:12.5px;color:var(--muted)}
+.acc b{font:500 34px var(--mono);letter-spacing:-.02em}
+.note{font-size:12.5px;color:var(--dim);margin-top:10px}
+
+footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;color:var(--muted);font-size:13.5px}
+footer h2{color:var(--fg)}
+footer p{max-width:46ch}
+
+@media (max-width:1180px){
+  .bench{grid-template-columns:200px minmax(0,1fr)}
+  .controls{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0 24px}
+  .controls hr{display:none}
+}
+@media (max-width:760px){
+  .wrap{padding:20px 16px 40px}
+  h1{font-size:24px}
+  .bench{grid-template-columns:1fr}
+  .picker{border-right:0;border-bottom:1px solid var(--line)}
+  .gallery{grid-template-columns:repeat(10,1fr)}
+  ol.steps{grid-template-columns:repeat(5,1fr)}
+  ol.steps button{font-size:0}
+  ol.steps button::before{font-size:12px}
+  .explain,.results,footer{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1><span class="ohm">옴의 법칙</span>과 <span class="kir">키르히호프 법칙</span>으로 숫자를 읽는 회로</h1>
+    <p class="lede">손글씨 숫자 하나를 고르면, 가중치를 저항에 담은 아날로그 크로스바 회로가 3층 신경망을 계산하는 과정을 단계별로 보여줍니다. 오른쪽에서 소자 편차나 ADC 비트 수를 바꿔 칩을 일부러 망가뜨려 보세요.</p>
+  </div>
+  <div class="legend">
+    <span><i style="background:var(--volt)"></i>전압 · 입력 행 · G⁺</span>
+    <span><i style="background:var(--amp)"></i>전류 · 출력 열 · G⁻</span>
+    <span><i style="background:var(--ok)"></i>바이어스 · 정답</span>
+  </div>
+</header>
+
+<div class="bench">
+  <aside class="picker">
+    <h2>숫자 고르기</h2>
+    <p class="hint">빨간 숫자는 열악한 칩에서 자주 틀리는 예시예요.</p>
+    <div class="gallery" id="gallery"></div>
+    <div class="picked"><canvas id="pickedImg" width="8" height="8"></canvas><div class="t">정답<b id="pickedLabel">–</b></div></div>
+  </aside>
+
+  <main class="viewer">
+    <div class="vtop">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="player">
+        <button id="prev" aria-label="이전 단계">◀</button>
+        <button id="play" class="play">재생</button>
+        <button id="next" aria-label="다음 단계">▶</button>
+      </div>
+    </div>
+    <ol class="steps" id="steps"></ol>
+    <div class="stage"><canvas id="cv" aria-label="크로스바 회로 시각화"></canvas></div>
+    <div class="explain">
+      <div><h3 id="exTitle"></h3><p id="exBody"></p></div>
+      <div class="eq" id="exEq"></div>
+    </div>
+  </main>
+
+  <aside class="controls">
+    <div>
+      <h2>칩 설정</h2>
+      <div class="presets">
+        <button data-preset="ideal">이상적인 회로</button>
+        <button data-preset="nominal">보통 칩</button>
+        <button data-preset="bad">열악한 칩</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <div class="lab">학습 방식</div>
+      <div class="seg" id="model">
+        <button data-m="std" aria-pressed="true">일반 학습</button>
+        <button data-m="hwa" aria-pressed="false">하드웨어 인식</button>
+      </div>
+      <small>하드웨어 인식 학습: 학습할 때 가중치에 일부러 잡음을 넣어 오차에 강하게 만든 모델</small>
+    </div>
+    <div class="ctl">
+      <label class="switch">열별 보정<input type="checkbox" id="cal"></label>
+      <small>보정용 숫자 200장을 먼저 흘려서 열마다 이득과 오프셋을 측정해 되돌립니다</small>
+    </div>
+    <hr>
+    <div class="ctl"><label for="sigma">소자 편차 σ <output id="o_sigma"></output></label><input type="range" id="sigma" min="0" max="40" step="1"><small>같은 값을 써도 소자마다 컨덕턴스가 다르게 써지는 정도</small></div>
+    <div class="ctl"><label for="levels">소자 컨덕턴스 단계 <output id="o_levels"></output></label>
+      <select id="levels"><option value="2">2단계</option><option value="4">4단계</option><option value="8">8단계</option><option value="16">16단계</option><option value="32">32단계</option><option value="64">64단계</option><option value="0">연속 (무한)</option></select></div>
+    <div class="ctl"><label for="adc">ADC 비트 <output id="o_adc"></output></label><input type="range" id="adc" min="2" max="10" step="1"><small>열 전류를 숫자로 바꿀 때의 정밀도</small></div>
+    <div class="ctl"><label for="dac">DAC 비트 <output id="o_dac"></output></label>
+      <select id="dac"><option value="4">4비트</option><option value="6">6비트</option><option value="8">8비트</option><option value="0">연속 (무한)</option></select><small>입력값을 행 전압으로 바꿀 때의 정밀도</small></div>
+    <div class="ctl"><label for="beta">IR drop <output id="o_beta"></output></label><input type="range" id="beta" min="0" max="30" step="1"><small>배선 저항 때문에 가장 먼 교차점에서 잃는 전압</small></div>
+    <div class="ctl"><label for="read">읽기 잡음 <output id="o_read"></output></label><input type="range" id="read" min="0" max="5" step="0.1"><small>ADC 풀스케일 대비 무작위 잡음</small></div>
+    <hr>
+    <div class="ctl">
+      <div class="lab">칩 번호</div>
+      <div class="chiprow"><output id="o_seed"></output><button id="newchip">다른 칩 만들기</button></div>
+      <small>같은 설정이라도 칩마다 소자 편차가 다르게 생깁니다</small>
+    </div>
+  </aside>
+</div>
+
+<div class="results">
+  <section>
+    <h2>이 숫자의 판정</h2>
+    <p class="verdict" id="verdict"></p>
+    <div class="probs" id="probs"></div>
+    <div class="keys"><span><i style="border:1px solid #cfcfcf"></i>디지털 (정답 기준)</span><span><i style="background:var(--volt)"></i>아날로그 칩</span></div>
+  </section>
+  <section>
+    <h2>층마다 쌓이는 오차</h2>
+    <div class="lerr" id="lerr"></div>
+    <p class="note">디지털로 정확히 계산한 값과 칩 출력의 상대 오차 (RMS)</p>
+  </section>
+  <section>
+    <h2>테스트 숫자 540장 정답률</h2>
+    <div class="acc">
+      <div><span>디지털</span><b id="accD">–</b></div>
+      <div class="an"><span>이 아날로그 칩</span><b id="accA">–</b></div>
+    </div>
+    <p class="note" id="accNote"></p>
+  </section>
+</div>
+
+<footer>
+  <div><h2>무엇을 계산하나</h2><p>8×8 손글씨 숫자를 64 → 32 → 16 → 10 신경망으로 분류합니다. 각 층의 가중치는 저항의 컨덕턴스 G로 저장되고, 음수 가중치를 위해 G⁺와 G⁻ 두 배열을 써서 마지막에 뺍니다.</p></div>
+  <div><h2>회로에서 일어나는 일</h2><p>입력은 DAC가 전압으로 바꿔 행에 걸고, 교차점마다 I = G·V로 곱해지며, 열을 따라 전류가 합쳐집니다. TIA가 열을 0V로 붙잡은 채 전류를 전압으로 바꾸고, ADC가 숫자로 읽습니다.</p></div>
+  <div><h2>모델의 단순화</h2><p>IR drop은 회로 방정식 대신 거리에 비례해 전압이 줄어드는 모델이고, 활성화(ReLU)는 디지털로 처리합니다. 코드와 실험 결과는 <a href="https://github.com/jeehoo0507/mul-li">GitHub 저장소</a>에 있습니다.</p></div>
+</footer>
+</div>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+(() => {
+"use strict";
+const D = JSON.parse(document.getElementById("data").textContent);
+const SIZES = D.sizes, NIN = SIZES[0], NTE = D.yte.length, NCAL = D.Xcal.length / NIN;
+const Xte = [], Xcal = [];
+for (let n = 0; n < NTE; n++) Xte.push(Float64Array.from(D.Xte.slice(n * NIN, (n + 1) * NIN), v => v / 16));
+for (let n = 0; n < NCAL; n++) Xcal.push(Float64Array.from(D.Xcal.slice(n * NIN, (n + 1) * NIN), v => v / 16));
+const KB = 1.380649e-23;
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const C = { volt:"#ff8a4c", voltD:"#5a2a10", amp:"#6d9bff", ampD:"#16285a", ok:"#5fd38d", bad:"#ff5d6c", fg:"#ececec", muted:"#9a9a9a", dim:"#5e5e5e", line:"#262626" };
+
+/* ---------------- digital network ---------------- */
+const PARAMS = {};
+for (const m of ["std", "hwa"]) PARAMS[m] = D.params[m].map(L => ({ W: Float64Array.from(L.W.flat()), b: Float64Array.from(L.b), nin: L.W.length, nout: L.b.length }));
+
+function digital(m, x) {
+  const P = PARAMS[m]; let h = x; const pres = [], acts = [x];
+  P.forEach((L, li) => {
+    const z = new Float64Array(L.nout);
+    for (let j = 0; j < L.nout; j++) { let s = L.b[j]; for (let i = 0; i < L.nin; i++) s += h[i] * L.W[i * L.nout + j]; z[j] = s; }
+    pres.push(z);
+    h = li < P.length - 1 ? z.map(v => Math.max(0, v)) : z;
+    acts.push(h);
+  });
+  return { out: h, pres, acts };
+}
+
+/* ---------------- RNG ---------------- */
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function gaussFrom(rng) { return () => { let u = 0; while (u === 0) u = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rng()); }; }
+
+/* ---------------- analog chip (sim.py 와 같은 모델) ---------------- */
+const BASE = { Gmax: 100e-6, Gmin: 1e-6, Vread: 0.2, dac: 8, T: 300, B: 1e8 };
+
+function buildChip(m, cfg, seed) {
+  const P = PARAMS[m], g = gaussFrom(mulberry32(seed * 2654435761 + 17));
+  const cal = Xcal.map(x => digital(m, x).acts);
+  const { Gmax, Gmin } = BASE, Lv = cfg.levels;
+  const lvl = a => Lv ? Math.round(a * (Lv - 1)) / (Lv - 1) : a;
+  const layers = P.map((L, li) => {
+    let mx = 1e-6; for (const a of cal) for (const v of a[li]) if (v > mx) mx = v;
+    const xmax = 1.2 * mx, Nin = L.nin + 1, Nout = L.nout;
+    const Wa = new Float64Array(Nin * Nout);
+    for (let i = 0; i < L.nin; i++) for (let j = 0; j < Nout; j++) Wa[i * Nout + j] = L.W[i * Nout + j];
+    for (let j = 0; j < Nout; j++) Wa[L.nin * Nout + j] = L.b[j] / xmax;
+    let wmax = 0; for (const v of Wa) wmax = Math.max(wmax, Math.abs(v));
+    const Gpt = new Float64Array(Nin * Nout), Gnt = new Float64Array(Nin * Nout), Gp = new Float64Array(Nin * Nout), Gn = new Float64Array(Nin * Nout), A = new Float64Array(Nin * Nout);
+    for (let i = 0; i < Nin; i++) for (let j = 0; j < Nout; j++) {
+      const k = i * Nout + j, w = Wa[k];
+      Gpt[k] = Gmin + (Gmax - Gmin) * lvl(Math.max(w, 0) / wmax);
+      Gnt[k] = Gmin + (Gmax - Gmin) * lvl(Math.max(-w, 0) / wmax);
+      A[k] = 1 - cfg.beta * 0.5 * ((j + 1) / Nout + (Nin - i) / Nin);
+    }
+    for (let k = 0; k < Gp.length; k++) Gp[k] = Math.max(0, Gpt[k] * (1 + cfg.sigma * g()));
+    for (let k = 0; k < Gn.length; k++) Gn[k] = Math.max(0, Gnt[k] * (1 + cfg.sigma * g()));
+    const sumP = new Float64Array(Nout), sumN = new Float64Array(Nout);
+    for (let i = 0; i < Nin; i++) for (let j = 0; j < Nout; j++) { sumP[j] += Gp[i * Nout + j]; sumN[j] += Gn[i * Nout + j]; }
+    const s_in = BASE.Vread / xmax;
+    let FS = 0;
+    for (const a of cal) {
+      const x = a[li];
+      for (let j = 0; j < Nout; j++) {
+        let s = 0; for (let i = 0; i < L.nin; i++) s += x[i] * s_in * (Gpt[i * Nout + j] - Gnt[i * Nout + j]);
+        s += xmax * s_in * (Gpt[L.nin * Nout + j] - Gnt[L.nin * Nout + j]);
+        FS = Math.max(FS, Math.abs(s));
+      }
+    }
+    return { Nin, Nout, xmax, wmax, Gpt, Gnt, Gp, Gn, A, sumP, sumN, k: (Gmax - Gmin) / wmax, s_in, FS: 1.2 * FS, last: li === P.length - 1, cal: null };
+  });
+  return { m, cfg, seed, layers };
+}
+
+function runLayer(chip, L, h, g, detail) {
+  const c = chip.cfg, { Nin, Nout } = L, Vr = BASE.Vread;
+  const V = new Float64Array(Nin);
+  for (let i = 0; i < Nin; i++) {
+    let v = Math.min(Vr, Math.max(0, (i < Nin - 1 ? h[i] : L.xmax) * L.s_in));
+    if (c.dac) { const q = 2 ** c.dac - 1; v = Math.round(v / Vr * q) / q * Vr; }
+    V[i] = v;
+  }
+  const Ip = new Float64Array(Nout), In = new Float64Array(Nout);
+  let cellP, cellN;
+  if (detail) { cellP = new Float64Array(Nin * Nout); cellN = new Float64Array(Nin * Nout); }
+  for (let i = 0; i < Nin; i++) { const v = V[i]; if (!v) continue;
+    for (let j = 0; j < Nout; j++) { const k = i * Nout + j, ip = v * L.Gp[k] * L.A[k], inn = v * L.Gn[k] * L.A[k]; Ip[j] += ip; In[j] += inn; if (detail) { cellP[k] = ip; cellN[k] = inn; } } }
+  const tn = c.thermal === false ? 0 : Math.sqrt(4 * KB * BASE.T * BASE.B);
+  const Ipre = new Float64Array(Nout), Iq = new Float64Array(Nout), z = new Float64Array(Nout);
+  const bits = c.adc, q = L.FS / (2 ** (bits - 1));
+  for (let j = 0; j < Nout; j++) {
+    Ip[j] += tn * Math.sqrt(L.sumP[j]) * g(); In[j] += tn * Math.sqrt(L.sumN[j]) * g();
+    let I = Ip[j] - In[j] + c.read * L.FS * g();
+    Ipre[j] = I;
+    I = Math.min(L.FS, Math.max(-L.FS, Math.round(I / q) * q));
+    Iq[j] = I;
+    let v = I / (L.k * L.s_in);
+    if (L.cal) v = v * L.cal.g[j] + L.cal.o[j];
+    z[j] = v;
+  }
+  return detail ? { V, cellP, cellN, Ip, In, Ipre, Iq, z } : { z };
+}
+
+function runChip(chip, x, noiseSeed, detail) {
+  const g = gaussFrom(mulberry32(noiseSeed)); let h = x; const steps = [];
+  for (const L of chip.layers) {
+    const r = runLayer(chip, L, h, g, detail); r.hin = h; steps.push(r);
+    h = L.last ? r.z : r.z.map(v => Math.max(0, v));
+  }
+  return { out: h, steps };
+}
+
+function calibrate(chip) {
+  const P = PARAMS[chip.m], g = gaussFrom(mulberry32(chip.seed * 7919 + 13));
+  let H = Xcal;
+  chip.layers.forEach((L, li) => {
+    L.cal = null;
+    const Zs = H.map(h => runLayer(chip, L, h, g, false).z);
+    const W = P[li], gg = new Float64Array(L.Nout), oo = new Float64Array(L.Nout);
+    for (let j = 0; j < L.Nout; j++) {
+      let sx = 0, sy = 0, sxx = 0, sxy = 0; const n = H.length;
+      H.forEach((h, s) => { let t = W.b[j]; for (let i = 0; i < W.nin; i++) t += h[i] * W.W[i * W.nout + j]; const x = Zs[s][j]; sx += x; sy += t; sxx += x * x; sxy += x * t; });
+      const den = n * sxx - sx * sx;
+      gg[j] = Math.abs(den) > 1e-12 ? (n * sxy - sx * sy) / den : 1;
+      oo[j] = (sy - gg[j] * sx) / n;
+    }
+    L.cal = { g: gg, o: oo };
+    H = Zs.map(z => { const v = z.map((x, j) => x * gg[j] + oo[j]); return L.last ? v : v.map(u => Math.max(0, u)); });
+  });
+}
+
+/* ---------------- state ---------------- */
+const PRESETS = {
+  ideal:   { sigma: 0,  levels: 0,  adc: 10, dac: 0, beta: 0,  read: 0 },
+  nominal: { sigma: 5,  levels: 32, adc: 8,  dac: 8, beta: 5,  read: 0.2 },
+  bad:     { sigma: 30, levels: 8,  adc: 4,  dac: 4, beta: 15, read: 2 },
+};
+const S = { model: "std", cal: false, seed: 1, sample: D.gallery[0], layer: 0, stage: 0, playing: false, t: 1, focus: null, ...PRESETS.nominal };
+let chip = null, run = null, dig = null;
+
+const cfgOf = () => ({ sigma: S.sigma / 100, levels: +S.levels || null, adc: S.adc, dac: +S.dac || null, beta: S.beta / 100, read: S.read / 100 });
+
+function rebuild() {
+  chip = buildChip(S.model, cfgOf(), S.seed);
+  if (S.cal) calibrate(chip);
+  recompute();
+  scheduleAccuracy();
+}
+function recompute() {
+  const x = Xte[S.sample];
+  run = runChip(chip, x, S.seed * 100003 + S.sample, true);
+  dig = digital(S.model, x);
+  renderResults();
+  draw();
+  renderExplain();
+}
+
+/* ---------------- UI: gallery ---------------- */
+const $ = id => document.getElementById(id);
+function drawDigit(cv, x) {
+  const ctx = cv.getContext("2d"), im = ctx.createImageData(8, 8);
+  for (let k = 0; k < 64; k++) { const v = Math.round(x[k] * 255); im.data.set([v, v, v, 255], k * 4); }
+  ctx.putImageData(im, 0, 0);
+}
+const wrongSet = new Set();
+(function initWrong() {
+  const bad = buildChip("std", { sigma: .3, levels: 8, adc: 4, beta: .15, read: .02 }, 3);
+  D.gallery.forEach(n => { const o = runChip(bad, Xte[n], 3 * 100003 + n, false).out; if (argmax(o) !== D.yte[n]) wrongSet.add(n); });
+})();
+function argmax(a) { let b = 0; for (let i = 1; i < a.length; i++) if (a[i] > a[b]) b = i; return b; }
+
+const gal = $("gallery");
+D.gallery.forEach(n => {
+  const b = document.createElement("button");
+  b.setAttribute("aria-label", `숫자 ${D.yte[n]} 예시`);
+  b.setAttribute("aria-pressed", n === S.sample ? "true" : "false");
+  if (wrongSet.has(n)) b.classList.add("wrong");
+  const cv = document.createElement("canvas"); cv.width = 8; cv.height = 8; drawDigit(cv, Xte[n]);
+  const t = document.createElement("span"); t.className = "tag"; t.textContent = D.yte[n];
+  b.append(cv, t);
+  b.onclick = () => { S.sample = n; gal.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false")); pickedUI(); recompute(); startPlay(true); };
+  gal.append(b);
+});
+function pickedUI() { drawDigit($("pickedImg"), Xte[S.sample]); $("pickedLabel").textContent = D.yte[S.sample]; }
+
+/* ---------------- UI: controls ---------------- */
+const fmt = { sigma: v => v + "%", levels: v => +v ? v + "단계" : "연속", adc: v => v + "비트", dac: v => +v ? v + "비트" : "연속", beta: v => v + "%", read: v => (+v).toFixed(1) + "%" };
+function syncControls() {
+  for (const k of ["sigma", "levels", "adc", "dac", "beta", "read"]) { $(k).value = S[k]; $("o_" + k).textContent = fmt[k](S[k]); }
+  $("cal").checked = S.cal; $("o_seed").textContent = "#" + S.seed;
+  $("model").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === S.model ? "true" : "false"));
+}
+for (const k of ["sigma", "levels", "adc", "dac", "beta", "read"]) $(k).addEventListener("input", e => { S[k] = +e.target.value; syncControls(); rebuild(); });
+$("cal").addEventListener("change", e => { S.cal = e.target.checked; rebuild(); });
+$("model").addEventListener("click", e => { const m = e.target.closest("button")?.dataset.m; if (m) { S.model = m; syncControls(); rebuild(); } });
+$("newchip").onclick = () => { S.seed++; syncControls(); rebuild(); };
+document.querySelectorAll("[data-preset]").forEach(b => b.onclick = () => { Object.assign(S, PRESETS[b.dataset.preset]); syncControls(); rebuild(); });
+
+/* ---------------- UI: tabs / steps / player ---------------- */
+const STAGES = ["DAC: 숫자 → 전압", "곱셈: I = G·V", "덧셈: 열 전류 합", "차동 + ADC", "ReLU → 다음 층"];
+const tabs = $("tabs");
+SIZES.slice(1).forEach((n, li) => {
+  const b = document.createElement("button"); b.setAttribute("role", "tab");
+  b.innerHTML = `${li + 1}층<small>${SIZES[li] + 1}×${n}</small>`;
+  b.onclick = () => { stopPlay(); S.layer = li; S.stage = 0; S.t = 1; S.focus = null; updateNav(); draw(); renderExplain(); };
+  tabs.append(b);
+});
+const steps = $("steps");
+STAGES.forEach((s, i) => { const li = document.createElement("li"), b = document.createElement("button"); b.textContent = s; b.onclick = () => { stopPlay(); S.stage = i; S.t = 1; updateNav(); draw(); renderExplain(); }; li.append(b); steps.append(li); });
+function stageName(i) { return i === 4 && S.layer === 2 ? "출력: 가장 큰 값이 답" : STAGES[i]; }
+function updateNav() {
+  tabs.querySelectorAll("button").forEach((b, i) => b.setAttribute("aria-selected", i === S.layer ? "true" : "false"));
+  steps.querySelectorAll("button").forEach((b, i) => { b.textContent = stageName(i); b.classList.toggle("done", i < S.stage); i === S.stage ? b.setAttribute("aria-current", "step") : b.removeAttribute("aria-current"); });
+  $("play").textContent = S.playing ? "일시정지" : (S.layer === 2 && S.stage === 4 ? "처음부터" : "재생");
+}
+function advance(dir) {
+  let { layer, stage } = S; stage += dir;
+  if (stage > 4) { if (layer < 2) { layer++; stage = 0; } else { stage = 4; return false; } }
+  if (stage < 0) { if (layer > 0) { layer--; stage = 4; } else { stage = 0; return false; } }
+  S.layer = layer; S.stage = stage; S.focus = null; return true;
+}
+$("next").onclick = () => { stopPlay(); advance(1); S.t = 1; updateNav(); draw(); renderExplain(); };
+$("prev").onclick = () => { stopPlay(); advance(-1); S.t = 1; updateNav(); draw(); renderExplain(); };
+$("play").onclick = () => S.playing ? stopPlay() : startPlay(S.layer === 2 && S.stage === 4);
+let raf = 0, last = 0;
+const STAGE_MS = 1300;
+function startPlay(fromStart) {
+  if (fromStart) { S.layer = 0; S.stage = 0; }
+  S.playing = true; S.t = 0; last = performance.now(); updateNav(); renderExplain();
+  if (REDUCED) { S.t = 1; draw(); }
+  cancelAnimationFrame(raf); raf = requestAnimationFrame(tick);
+}
+function stopPlay() { S.playing = false; cancelAnimationFrame(raf); S.t = 1; updateNav(); }
+function tick(now) {
+  if (!S.playing) return;
+  const dt = now - last; last = now;
+  S.t = REDUCED ? 1 : Math.min(1, S.t + dt / (STAGE_MS * 0.7));
+  draw();
+  if (S.t >= 1) {
+    if (!tick.hold) tick.hold = now;
+    if (now - tick.hold > STAGE_MS * (REDUCED ? 1 : 0.35)) {
+      tick.hold = 0;
+      if (!advance(1)) { stopPlay(); draw(); renderExplain(); return; }
+      S.t = 0; updateNav(); renderExplain();
+    }
+  }
+  raf = requestAnimationFrame(tick);
+}
+
+/* ---------------- canvas drawing ---------------- */
+const cv = $("cv"), ctx = cv.getContext("2d");
+let geo = null;
+function resize() {
+  const w = cv.clientWidth, h = Math.max(420, Math.min(620, w * 0.66)), dpr = devicePixelRatio || 1;
+  cv.style.height = h + "px"; cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); draw();
+}
+const mix = (a, b, t) => { const p = x => [1, 3, 5].map(i => parseInt(x.slice(i, i + 2), 16)); const A = p(a), B = p(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",")})`; };
+const rampP = t => t < .5 ? mix("#0b0b0b", C.voltD, t * 2) : mix(C.voltD, C.volt, (t - .5) * 2);
+const rampN = t => t < .5 ? mix("#0b0b0b", C.ampD, t * 2) : mix(C.ampD, C.amp, (t - .5) * 2);
+const ease = t => 1 - Math.pow(1 - t, 3);
+
+function draw() {
+  if (!chip || !run) return;
+  const W = cv.clientWidth, H = cv.clientHeight; if (!W) return;
+  ctx.clearRect(0, 0, W, H);
+  const L = chip.layers[S.layer], st = run.steps[S.layer], { Nin, Nout } = L;
+  const stage = S.stage, t = ease(S.t);
+  const showDigit = S.layer === 0 && W >= 560;
+  const left = showDigit ? 132 : 46, right = 10, top = 14, gap = 14;
+  const outH = 104, barH = 56, botPad = 16;
+  const arrH = H - top - outH - barH - botPad - 22;
+  const cw = (W - left - right - gap) / (2 * Nout), ch = arrH / Nin;
+  const xP = left, xN = left + Nout * cw + gap, yA = top, yBar = yA + arrH + 12, yOut = yBar + barH + 14;
+  geo = { xP, xN, yA, cw, ch, Nin, Nout };
+  const Vr = BASE.Vread;
+
+  // input digit for layer 1
+  if (showDigit) {
+    const s = 9, ix = 4, iy = yA + arrH / 2 - 4 * s, x = Xte[S.sample];
+    for (let k = 0; k < 64; k++) { const v = Math.round(x[k] * 255); ctx.fillStyle = `rgb(${v},${v},${v})`; ctx.fillRect(ix + (k % 8) * s, iy + Math.floor(k / 8) * s, s, s); }
+    ctx.strokeStyle = C.dim; ctx.lineWidth = 1; ctx.strokeRect(ix + .5, iy + .5, 8 * s, 8 * s);
+  }
+  // DAC input bars (row voltages)
+  const vin = stage === 0 ? t : 1;
+  for (let i = 0; i < Nin; i++) {
+    const y = yA + i * ch, f = st.V[i] / Vr, bias = i === Nin - 1;
+    ctx.fillStyle = "#141414"; ctx.fillRect(left - 34, y + ch * .1, 26, Math.max(1, ch * .8));
+    ctx.fillStyle = bias ? C.ok : C.volt; ctx.fillRect(left - 34, y + ch * .1, 26 * f * vin, Math.max(1, ch * .8));
+  }
+  // wires
+  ctx.lineWidth = Math.max(.4, Math.min(1, ch * .15));
+  for (let i = 0; i < Nin; i++) { const y = yA + (i + .5) * ch; ctx.strokeStyle = "rgba(255,138,76,.35)"; ctx.beginPath(); ctx.moveTo(left - 6, y); ctx.lineTo(xN + Nout * cw, y); ctx.stroke(); }
+  for (const x0 of [xP, xN]) for (let j = 0; j < Nout; j++) { const x = x0 + (j + .5) * cw; ctx.strokeStyle = "rgba(109,155,255,.35)"; ctx.beginPath(); ctx.moveTo(x, yA); ctx.lineTo(x, yBar + barH); ctx.stroke(); }
+
+  // cells
+  let cmax = 1e-12; for (let k = 0; k < st.cellP.length; k++) cmax = Math.max(cmax, st.cellP[k], st.cellN[k]);
+  const rowsShown = stage === 1 ? Math.ceil(Nin * t) : Nin;
+  const pad = Math.min(1, cw * .12, ch * .12);
+  for (let i = 0; i < Nin; i++) for (let j = 0; j < Nout; j++) {
+    const k = i * Nout + j;
+    let fp, fn;
+    if (stage === 0 || (stage === 1 && i >= rowsShown)) { fp = .85 * Math.sqrt(L.Gp[k] / BASE.Gmax); fn = .85 * Math.sqrt(L.Gn[k] / BASE.Gmax); }
+    else { fp = Math.sqrt(st.cellP[k] / cmax); fn = Math.sqrt(st.cellN[k] / cmax); }
+    ctx.fillStyle = rampP(fp); ctx.fillRect(xP + j * cw + pad, yA + i * ch + pad, cw - 2 * pad, ch - 2 * pad);
+    ctx.fillStyle = rampN(fn); ctx.fillRect(xN + j * cw + pad, yA + i * ch + pad, cw - 2 * pad, ch - 2 * pad);
+  }
+  ctx.strokeStyle = C.line; ctx.lineWidth = 1;
+  ctx.strokeRect(xP + .5, yA + .5, Nout * cw, arrH); ctx.strokeRect(xN + .5, yA + .5, Nout * cw, arrH);
+  // focus cell / column
+  if (S.focus) {
+    const { i, j } = S.focus; ctx.strokeStyle = C.fg; ctx.lineWidth = 1.2;
+    for (const x0 of [xP, xN]) { ctx.strokeRect(x0 + j * cw + .5, yA + .5, cw, arrH); if (i != null) ctx.strokeRect(x0 + j * cw + .5, yA + i * ch + .5, cw, ch); }
+  }
+
+  // column current bars (stage >= 2)
+  let imax = 1e-12; for (let j = 0; j < Nout; j++) imax = Math.max(imax, st.Ip[j], st.In[j]);
+  const sumT = stage === 2 ? t : stage > 2 ? 1 : 0;
+  ctx.fillStyle = "#0e0e0e"; ctx.fillRect(xP, yBar, Nout * cw, barH); ctx.fillRect(xN, yBar, Nout * cw, barH);
+  for (let j = 0; j < Nout; j++) {
+    const hp = barH * Math.max(0, st.Ip[j]) / imax * sumT, hn = barH * Math.max(0, st.In[j]) / imax * sumT;
+    ctx.fillStyle = C.volt; ctx.fillRect(xP + j * cw + pad, yBar + barH - hp, cw - 2 * pad, hp);
+    ctx.fillStyle = C.amp; ctx.fillRect(xN + j * cw + pad, yBar + barH - hn, cw - 2 * pad, hn);
+  }
+  // flowing charge dots during summation
+  if (stage === 2 && S.playing && !REDUCED) {
+    const ph = (performance.now() / 600) % 1;
+    for (const [x0, I] of [[xP, st.Ip], [xN, st.In]]) for (let j = 0; j < Nout; j++) {
+      const a = Math.max(0, I[j]) / imax; if (a < .05) continue;
+      ctx.fillStyle = `rgba(236,236,236,${.25 + .6 * a})`;
+      for (let d = 0; d < 3; d++) { const y = yA + ((ph + d / 3) % 1) * arrH; ctx.fillRect(x0 + (j + .5) * cw - 1, y, 2, 3); }
+    }
+  }
+
+  // outputs: differential + ADC + ReLU
+  const totalW = xN + Nout * cw - xP, ow = totalW / Nout;
+  const dz = dig.pres[S.layer];
+  const zs = st.z;
+  let zmax = 1e-9; for (let j = 0; j < Nout; j++) zmax = Math.max(zmax, Math.abs(zs[j]), Math.abs(dz[j]));
+  const y0 = yOut + outH / 2, sc = (outH / 2 - 6) / zmax;
+  ctx.strokeStyle = C.line; ctx.beginPath(); ctx.moveTo(xP, y0 + .5); ctx.lineTo(xP + totalW, y0 + .5); ctx.stroke();
+  // fan lines from column pairs to differential outputs
+  if (stage >= 3) {
+    ctx.strokeStyle = "rgba(236,236,236,.12)"; ctx.lineWidth = .6;
+    for (let j = 0; j < Nout; j++) { const xo = xP + (j + .5) * ow; for (const x0 of [xP, xN]) { ctx.beginPath(); ctx.moveTo(x0 + (j + .5) * cw, yBar + barH); ctx.lineTo(xo, yOut + 2); ctx.stroke(); } }
+  }
+  const pred = argmax(run.out), truth = D.yte[S.sample];
+  for (let j = 0; j < Nout; j++) {
+    const xo = xP + (j + .5) * ow, bw = Math.max(2, ow * .52);
+    if (stage >= 3) {
+      const kQ = L.k * L.s_in;
+      const pre = st.Ipre[j] / kQ * (L.cal ? L.cal.g[j] : 1) + (L.cal ? L.cal.o[j] : 0);
+      const showQ = stage > 3 || t > .55, val = showQ ? zs[j] : pre;
+      const reluHide = stage === 4 && !L.last && val < 0;
+      const hgt = val * sc * (stage === 3 ? Math.min(1, t * 1.8) : 1);
+      let col = val >= 0 ? C.fg : C.muted;
+      if (L.last && stage === 4) col = j === pred ? (pred === truth ? C.ok : C.bad) : C.dim;
+      ctx.globalAlpha = reluHide ? .18 : 1;
+      ctx.fillStyle = col; ctx.fillRect(xo - bw / 2, hgt >= 0 ? y0 - hgt : y0, bw, Math.abs(hgt));
+      ctx.globalAlpha = 1;
+      // digital reference tick
+      ctx.strokeStyle = C.amp; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(xo - bw * .75, y0 - dz[j] * sc); ctx.lineTo(xo + bw * .75, y0 - dz[j] * sc); ctx.stroke();
+      // ADC levels (only when coarse)
+      if (showQ && chip.cfg.adc <= 5) {
+        const step = L.FS / (2 ** (chip.cfg.adc - 1)) / (L.k * L.s_in) * (L.cal ? L.cal.g[j] : 1);
+        ctx.strokeStyle = "rgba(255,138,76,.18)"; ctx.lineWidth = .6;
+        for (let q = -(2 ** (chip.cfg.adc - 1)); q <= 2 ** (chip.cfg.adc - 1); q++) { const yy = y0 - q * step * sc; if (yy < yOut || yy > yOut + outH) continue; ctx.beginPath(); ctx.moveTo(xo - bw * .7, yy); ctx.lineTo(xo + bw * .7, yy); ctx.stroke(); }
+      }
+    }
+    if (L.last) { ctx.fillStyle = stage === 4 && j === pred ? C.fg : C.dim; ctx.font = "500 11px IBM Plex Mono, monospace"; ctx.textAlign = "center"; ctx.fillText(j, xo, yOut + outH + 12); }
+  }
+}
+
+cv.addEventListener("mousemove", e => {
+  if (!geo) return; const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+  const { xP, xN, yA, cw, ch, Nin, Nout } = geo; let j = null, i = null;
+  if (x >= xP && x < xP + Nout * cw) j = Math.floor((x - xP) / cw); else if (x >= xN && x < xN + Nout * cw) j = Math.floor((x - xN) / cw);
+  if (j == null) return;
+  if (y >= yA && y < yA + Nin * ch) i = Math.floor((y - yA) / ch);
+  S.focus = { i, j }; if (!S.playing) draw(); renderExplain();
+});
+cv.addEventListener("mouseleave", () => { S.focus = null; if (!S.playing) draw(); renderExplain(); });
+
+/* ---------------- explanation panel ---------------- */
+const uA = I => Math.abs(I) >= 1e-3 ? (I * 1e3).toFixed(3) + " mA" : (I * 1e6).toFixed(2) + " µA";
+function focusCol(st) { if (S.focus) return S.focus.j; let b = 0; for (let j = 1; j < st.z.length; j++) if (Math.abs(st.z[j]) > Math.abs(st.z[b])) b = j; return b; }
+function focusRow(L, st, j) { if (S.focus && S.focus.i != null) return S.focus.i; let b = 0, bv = -1; for (let i = 0; i < L.Nin - 1; i++) { const v = st.cellP[i * L.Nout + j] + st.cellN[i * L.Nout + j]; if (v > bv) { bv = v; b = i; } } return b; }
+function renderExplain() {
+  if (!run) return;
+  const L = chip.layers[S.layer], st = run.steps[S.layer], j = focusCol(st), i = focusRow(L, st, j), k = i * L.Nout + j;
+  const rowName = i === L.Nin - 1 ? "바이어스 행" : (S.layer === 0 ? `픽셀 ${i}` : `입력 ${i}`);
+  let title = stageName(S.stage), body = "", eq = "";
+  if (S.stage === 0) {
+    body = "DAC가 이전 층의 값을 0~0.2 V 전압으로 바꿔 각 행에 겁니다. 맨 아래 초록 행은 바이어스로, 항상 같은 전압이 걸립니다.";
+    eq = `<span class="m">${rowName}</span>\nx = ${i === L.Nin - 1 ? "1 (고정)" : (st.hin[i]).toFixed(3)}\n<span class="v">V = ${(st.V[i] * 1000).toFixed(1)} mV</span>`;
+  } else if (S.stage === 1) {
+    body = "교차점마다 옴의 법칙으로 전류가 흐릅니다. 컨덕턴스 G가 가중치, 전압 V가 입력이라 전류가 곧 곱셈 결과예요. 셀 밝기가 전류 크기입니다. 셀 위에 마우스를 올려 보세요.";
+    eq = `<span class="m">${rowName}, 열 ${j}</span>\n<span class="v">G⁺ = ${(L.Gp[k] * 1e6).toFixed(1)} µS</span>  <span class="a">G⁻ = ${(L.Gn[k] * 1e6).toFixed(1)} µS</span>\nI⁺ = G⁺ × V × ${(L.A[k]).toFixed(3)} = ${uA(st.cellP[k])}\nI⁻ = G⁻ × V × ${(L.A[k]).toFixed(3)} = ${uA(st.cellN[k])}\n<span class="m">× ${(L.A[k]).toFixed(3)} 은 IR drop으로 줄어든 전압 비율</span>`;
+  } else if (S.stage === 2) {
+    body = "세로줄로 모인 전류는 키르히호프 전류 법칙에 따라 자동으로 더해집니다. 아래 막대가 각 열에 모인 전류의 합이에요.";
+    eq = `<span class="m">열 ${j}  (${L.Nin}개 셀의 합)</span>\n<span class="v">I⁺ = ΣG⁺V = ${uA(st.Ip[j])}</span>\n<span class="a">I⁻ = ΣG⁻V = ${uA(st.In[j])}</span>`;
+  } else if (S.stage === 3) {
+    const bits = chip.cfg.adc;
+    body = `TIA가 열 전류를 전압으로 바꾸고, 차동 회로가 I⁺ − I⁻를 구한 뒤 ${bits}비트 ADC가 숫자로 읽습니다. 파란 눈금은 디지털로 정확히 계산한 값이에요.`;
+    eq = `<span class="m">뉴런 ${j}</span>\nI⁺ − I⁻ = ${uA(st.Ipre[j])}\nADC ${bits}비트 → ${uA(st.Iq[j])}\n칩 출력 z = ${st.z[j].toFixed(3)}${L.cal ? "  (보정 후)" : ""}\n<span class="a">디지털    = ${dig.pres[S.layer][j].toFixed(3)}</span>`;
+  } else {
+    if (L.last) {
+      const p = argmax(run.out), tr = D.yte[S.sample];
+      body = "마지막 층은 ReLU 없이 10개 출력 중 가장 큰 값을 답으로 고릅니다.";
+      eq = `칩의 답     <span class="${p === tr ? "g" : "v"}">${p}</span>\n디지털의 답 ${argmax(dig.out)}\n정답        ${tr}`;
+    } else {
+      const neg = Array.from(st.z).filter(v => v < 0).length;
+      body = "ReLU가 음수 출력을 0으로 만들고(흐리게 표시), 나머지가 다음 층 DAC의 입력이 됩니다.";
+      eq = `max(0, z)\n<span class="m">${L.Nout}개 중 ${neg}개가 0이 됨</span>\n→ ${S.layer + 2}층 입력 ${L.Nout}개`;
+    }
+  }
+  $("exTitle").textContent = `${S.layer + 1}층 · ${title}`; $("exBody").textContent = body; $("exEq").innerHTML = eq;
+}
+
+/* ---------------- results ---------------- */
+function softmax(z) { const m = Math.max(...z), e = Array.from(z, v => Math.exp(v - m)), s = e.reduce((a, b) => a + b, 0); return e.map(v => v / s); }
+function relErr(a, b) { let n = 0, d = 0; for (let i = 0; i < a.length; i++) { n += (a[i] - b[i]) ** 2; d += b[i] ** 2; } return Math.sqrt(n / Math.max(d, 1e-12)); }
+function renderResults() {
+  const pa = softmax(run.out), pd = softmax(dig.out), tr = D.yte[S.sample], ca = argmax(run.out), cd = argmax(dig.out);
+  $("verdict").innerHTML = `디지털<b>${cd}</b> 아날로그 칩<b class="${ca === tr ? "ok" : "bad"}">${ca}</b><span class="${ca === tr ? "ok" : "bad"}">${ca === tr ? "정답" : "오답"}</span>`;
+  const box = $("probs"); box.innerHTML = "";
+  for (let k = 0; k < 10; k++) {
+    const r = document.createElement("div"); r.className = "prow" + (k === tr ? " true" : "");
+    r.innerHTML = `<span>${k}</span><div class="ptrack"><div class="d" style="width:${(pd[k] * 100).toFixed(1)}%"></div><div class="an" style="width:${(pa[k] * 100).toFixed(1)}%;background:${k === ca ? (ca === tr ? C.ok : C.bad) : C.volt}"></div></div><span style="text-align:right">${(pa[k] * 100).toFixed(1)}%</span>`;
+    box.append(r);
+  }
+  const le = $("lerr"); le.innerHTML = "";
+  run.steps.forEach((s, li) => {
+    const e = relErr(s.z, dig.pres[li]) * 100;
+    const r = document.createElement("div"); r.className = "row";
+    r.innerHTML = `<span>${li + 1}층</span><div class="bar"><i style="width:${Math.min(100, e * 2)}%"></i></div><span class="num">${e.toFixed(1)}%</span>`;
+    le.append(r);
+  });
+}
+let accTimer = 0;
+function scheduleAccuracy() { clearTimeout(accTimer); $("accA").textContent = "…"; accTimer = setTimeout(computeAccuracy, 120); }
+function computeAccuracy() {
+  let a = 0, d = 0;
+  for (let n = 0; n < NTE; n++) { const o = runChip(chip, Xte[n], S.seed * 100003 + n, false).out; if (argmax(o) === D.yte[n]) a++; if (argmax(digital(S.model, Xte[n]).out) === D.yte[n]) d++; }
+  $("accD").textContent = (d / NTE * 100).toFixed(1) + "%"; $("accA").textContent = (a / NTE * 100).toFixed(1) + "%";
+  $("accNote").textContent = `칩 #${S.seed} 하나로 측정. 칩을 바꾸면 소자 편차가 달라져 결과도 조금씩 변합니다.`;
+}
+
+/* ---------------- boot ---------------- */
+syncControls(); pickedUI(); updateNav();
+addEventListener("resize", resize);
+rebuild(); resize();
+window.__sim = { buildChip, runChip, digital, calibrate, Xte, D, S, get chip() { return chip; } };
+})();
+</script>
+</body>
+</html>
